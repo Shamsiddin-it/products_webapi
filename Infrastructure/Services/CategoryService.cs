@@ -1,24 +1,37 @@
 using System;
+using System.Linq.Expressions;
 using System.Net;
 using Dapper;
 using Domain.DTOs.Category;
 using Domain.Interfaces;
 using Domain.Responses;
 using Infrastructure.Data;
+using Microsoft.Extensions.Logging;
 
 namespace Infrastructure.Services;
 
-public class CategoryService(ApplicationDbContext dbContext) : ICategoryService
+public class CategoryService(
+    ApplicationDbContext dbContext,
+    ILogger<CategoryService> loggerService 
+    ) : ICategoryService
 {
     private readonly ApplicationDbContext context = dbContext;
+    private readonly ILogger<CategoryService> logger = loggerService;
     public async Task<Response<string>> CreateCategoryAsync(CreateCategoryDto dto)
     {
         using var connection = context.Connection();
         var query = "insert into categories(name, description) values(@name, @description)";
         var res = await connection.ExecuteAsync(query, dto);
-        return res==0
-        ? new Response<string>(HttpStatusCode.InternalServerError, "Something went wrong!")
-        : new Response<string>(HttpStatusCode.OK, "Added successfully!");
+        if (res == 0)
+        {
+            logger.LogError("could not create new category");
+            return new Response<string>(HttpStatusCode.InternalServerError, "Something went wrong!");
+        }
+        else
+        {
+            logger.LogInformation("New category created.");
+            return new Response<string>(HttpStatusCode.OK, "Added successfully!");
+        }
     }
 
     public async Task<Response<string>> DeleteCategoryAsync(int id)
